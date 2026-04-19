@@ -133,6 +133,21 @@ describe("Coding Agent Tools", () => {
 			expect(output).toContain("[90 more lines in file. Use offset=11 to continue.]");
 		});
 
+		it("should allow limit above default maxLines", async () => {
+			const testFile = join(testDir, "limit-above-default-max-lines.txt");
+			const lines = Array.from({ length: 3000 }, (_, i) => `Line ${i + 1}`);
+			writeFileSync(testFile, lines.join("\n"));
+
+			const result = await readTool.execute("test-call-6b", { path: testFile, limit: 2500 });
+			const output = getTextOutput(result);
+
+			expect(output).toContain("Line 1");
+			expect(output).toContain("Line 2500");
+			expect(output).not.toContain("Line 2501");
+			expect(output).toContain("[500 more lines in file. Use offset=2501 to continue.]");
+			expect(result.details).toBeUndefined();
+		});
+
 		it("should handle offset + limit together", async () => {
 			const testFile = join(testDir, "offset-limit-test.txt");
 			const lines = Array.from({ length: 100 }, (_, i) => `Line ${i + 1}`);

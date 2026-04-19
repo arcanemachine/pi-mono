@@ -135,7 +135,7 @@ export function createReadToolDefinition(
 	return {
 		name: "read",
 		label: "read",
-		description: `Read the contents of a file. Supports text files and images (jpg, png, gif, webp). Images are sent as attachments. For text files, output is truncated to ${maxLines} lines or ${formatSize(maxBytes)} (whichever is hit first). Use offset/limit for large files. When you need the full file, continue with offset until complete.`,
+		description: `Read the contents of a file. Supports text files and images (jpg, png, gif, webp). Images are sent as attachments. For text files, output is truncated to ${maxLines} lines or ${formatSize(maxBytes)} (whichever is hit first), unless a custom limit is specified. Use offset/limit for large files. When you need the full file, continue with offset until complete.`,
 		promptSnippet: "Read file contents",
 		promptGuidelines: ["Use read to examine files instead of cat or sed."],
 		parameters: readSchema,
@@ -220,8 +220,11 @@ export function createReadToolDefinition(
 								} else {
 									selectedContent = allLines.slice(startLine).join("\n");
 								}
-								// Apply truncation, respecting both line and byte limits.
-								const truncation = truncateHead(selectedContent, { maxLines, maxBytes });
+								// When limit is explicitly provided, don't re-cap those selected lines with maxLines.
+								// Keep maxBytes enforcement so very large responses still truncate safely.
+								const effectiveMaxLines =
+									userLimitedLines !== undefined ? Math.max(maxLines, userLimitedLines) : maxLines;
+								const truncation = truncateHead(selectedContent, { maxLines: effectiveMaxLines, maxBytes });
 								let outputText: string;
 								if (truncation.firstLineExceedsLimit) {
 									// First line alone exceeds the byte limit. Point the model at a bash fallback.

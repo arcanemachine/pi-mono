@@ -38,6 +38,7 @@ describe("createAgentSession readTool settings", () => {
 
 	async function executeRead(
 		testFile: string,
+		options?: { offset?: number; limit?: number },
 	): Promise<{ output: string; truncation: ReadTruncationDetails | undefined }> {
 		const { session } = await createAgentSession({
 			cwd,
@@ -50,7 +51,7 @@ describe("createAgentSession readTool settings", () => {
 
 			const result = await readDefinition.execute(
 				"read-test",
-				{ path: testFile },
+				{ path: testFile, offset: options?.offset, limit: options?.limit },
 				undefined,
 				undefined,
 				{} as ExtensionContext,
@@ -115,6 +116,22 @@ describe("createAgentSession readTool settings", () => {
 		expect(truncation?.truncatedBy).toBe("bytes");
 		expect(truncation?.maxLines).toBe(2000);
 		expect(truncation?.maxBytes).toBe(512);
+	});
+
+	it("lets explicit limit exceed configured maxLines", async () => {
+		writeProjectSettings({ readTool: { maxLines: 25, maxBytes: 50 * 1024 } });
+
+		const testFile = join(cwd, "limit-overrides-max-lines.txt");
+		const lines = Array.from({ length: 80 }, (_, i) => `Line ${i + 1}`);
+		writeFileSync(testFile, lines.join("\n"));
+
+		const { output, truncation } = await executeRead(testFile, { limit: 60 });
+
+		expect(output).toContain("Line 1");
+		expect(output).toContain("Line 60");
+		expect(output).not.toContain("Line 61");
+		expect(output).toContain("[20 more lines in file. Use offset=61 to continue.]");
+		expect(truncation).toBeUndefined();
 	});
 
 	it("applies maxLines and maxBytes overrides together", async () => {
