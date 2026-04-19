@@ -112,6 +112,24 @@ When a provider requests a retry delay longer than `maxDelayMs` (e.g., Google's 
 | `images.autoResize` | boolean | `true` | Resize images to 2000x2000 max |
 | `images.blockImages` | boolean | `false` | Block all images from being sent to LLM |
 
+### Read Tool
+
+| Setting | Type | Default | Description |
+|---------|------|---------|-------------|
+| `readTool.maxLines` | number | `2000` | Default line truncation limit for built-in `read` tool |
+| `readTool.maxBytes` | number | `51200` | Default byte truncation limit for built-in `read` tool |
+
+```json
+{
+  "readTool": {
+    "maxLines": 100,
+    "maxBytes": 5120
+  }
+}
+```
+
+These limits apply when the tool call does not specify `limit`. Use smaller values to reduce context usage for large files.
+
 ### Shell
 
 | Setting | Type | Default | Description |

@@ -309,4 +309,26 @@ describe("SettingsManager", () => {
 			expect(manager.getSessionDir()).toBe("./sessions");
 		});
 	});
+
+	describe("readTool settings", () => {
+		it("should return defaults when readTool settings are not set", () => {
+			writeFileSync(join(agentDir, "settings.json"), JSON.stringify({ theme: "dark" }));
+			const manager = SettingsManager.create(projectDir, agentDir);
+			expect(manager.getReadToolSettings()).toEqual({ maxLines: 2000, maxBytes: 50 * 1024 });
+		});
+
+		it("should read project readTool settings and normalize invalid values", () => {
+			writeFileSync(
+				join(agentDir, "settings.json"),
+				JSON.stringify({ readTool: { maxLines: 300, maxBytes: 4096 } }),
+			);
+			writeFileSync(
+				join(projectDir, ".pi", "settings.json"),
+				JSON.stringify({ readTool: { maxLines: 25, maxBytes: -1 } }),
+			);
+
+			const manager = SettingsManager.create(projectDir, agentDir);
+			expect(manager.getReadToolSettings()).toEqual({ maxLines: 25, maxBytes: 50 * 1024 });
+		});
+	});
 });

@@ -8,7 +8,7 @@ import { editTool } from "../src/core/tools/edit.js";
 import { findTool } from "../src/core/tools/find.js";
 import { grepTool } from "../src/core/tools/grep.js";
 import { lsTool } from "../src/core/tools/ls.js";
-import { readTool } from "../src/core/tools/read.js";
+import { createReadTool, readTool } from "../src/core/tools/read.js";
 import { writeTool } from "../src/core/tools/write.js";
 import * as shellModule from "../src/utils/shell.js";
 
@@ -68,6 +68,26 @@ describe("Coding Agent Tools", () => {
 			expect(output).toContain("Line 2000");
 			expect(output).not.toContain("Line 2001");
 			expect(output).toContain("[Showing lines 1-2000 of 2500. Use offset=2001 to continue.]");
+		});
+
+		it("should respect custom read defaults", async () => {
+			const testFile = join(testDir, "custom-limits.txt");
+			const lines = Array.from({ length: 80 }, (_, i) => `Line ${i + 1}`);
+			writeFileSync(testFile, lines.join("\n"));
+
+			const customReadTool = createReadTool(testDir, {
+				maxLines: 25,
+				maxBytes: 50 * 1024,
+			});
+			const result = await customReadTool.execute("test-call-custom-1", { path: testFile });
+			const output = getTextOutput(result);
+
+			expect(output).toContain("Line 1");
+			expect(output).toContain("Line 25");
+			expect(output).not.toContain("Line 26");
+			expect(output).toContain("[Showing lines 1-25 of 80. Use offset=26 to continue.]");
+			expect(result.details?.truncation?.maxLines).toBe(25);
+			expect(result.details?.truncation?.maxBytes).toBe(50 * 1024);
 		});
 
 		it("should truncate when byte limit exceeded", async () => {

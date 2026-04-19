@@ -50,6 +50,10 @@ export interface ReadToolOptions {
 	autoResizeImages?: boolean;
 	/** Custom operations for file reading. Default: local filesystem */
 	operations?: ReadOperations;
+	/** Maximum lines for truncation when limit is not explicitly specified. Default: 2000 */
+	maxLines?: number;
+	/** Maximum bytes for truncation. Default: 50KB */
+	maxBytes?: number;
 }
 
 function formatReadCall(
@@ -117,10 +121,21 @@ export function createReadToolDefinition(
 ): ToolDefinition<typeof readSchema, ReadToolDetails | undefined> {
 	const autoResizeImages = options?.autoResizeImages ?? true;
 	const ops = options?.operations ?? defaultReadOperations;
+	const configuredMaxLines = options?.maxLines;
+	const configuredMaxBytes = options?.maxBytes;
+	// Keep tool construction tolerant: invalid configured values fall back to built-in defaults.
+	const maxLines =
+		typeof configuredMaxLines === "number" && Number.isInteger(configuredMaxLines) && configuredMaxLines > 0
+			? configuredMaxLines
+			: DEFAULT_MAX_LINES;
+	const maxBytes =
+		typeof configuredMaxBytes === "number" && Number.isInteger(configuredMaxBytes) && configuredMaxBytes > 0
+			? configuredMaxBytes
+			: DEFAULT_MAX_BYTES;
 	return {
 		name: "read",
 		label: "read",
-		description: `Read the contents of a file. Supports text files and images (jpg, png, gif, webp). Images are sent as attachments. For text files, output is truncated to ${DEFAULT_MAX_LINES} lines or ${DEFAULT_MAX_BYTES / 1024}KB (whichever is hit first). Use offset/limit for large files. When you need the full file, continue with offset until complete.`,
+		description: `Read the contents of a file. Supports text files and images (jpg, png, gif, webp). Images are sent as attachments. For text files, output is truncated to ${maxLines} lines or ${formatSize(maxBytes)} (whichever is hit first). Use offset/limit for large files. When you need the full file, continue with offset until complete.`,
 		promptSnippet: "Read file contents",
 		promptGuidelines: ["Use read to examine files instead of cat or sed."],
 		parameters: readSchema,
@@ -206,12 +221,12 @@ export function createReadToolDefinition(
 									selectedContent = allLines.slice(startLine).join("\n");
 								}
 								// Apply truncation, respecting both line and byte limits.
-								const truncation = truncateHead(selectedContent);
+								const truncation = truncateHead(selectedContent, { maxLines, maxBytes });
 								let outputText: string;
 								if (truncation.firstLineExceedsLimit) {
 									// First line alone exceeds the byte limit. Point the model at a bash fallback.
 									const firstLineSize = formatSize(Buffer.byteLength(allLines[startLine], "utf-8"));
-									outputText = `[Line ${startLineDisplay} is ${firstLineSize}, exceeds ${formatSize(DEFAULT_MAX_BYTES)} limit. Use bash: sed -n '${startLineDisplay}p' ${path} | head -c ${DEFAULT_MAX_BYTES}]`;
+									outputText = `[Line ${startLineDisplay} is ${firstLineSize}, exceeds ${formatSize(maxBytes)} limit. Use bash: sed -n '${startLineDisplay}p' ${path} | head -c ${maxBytes}]`;
 									details = { truncation };
 								} else if (truncation.truncated) {
 									// Truncation occurred. Build an actionable continuation notice.
@@ -221,7 +236,7 @@ export function createReadToolDefinition(
 									if (truncation.truncatedBy === "lines") {
 										outputText += `\n\n[Showing lines ${startLineDisplay}-${endLineDisplay} of ${totalFileLines}. Use offset=${nextOffset} to continue.]`;
 									} else {
-										outputText += `\n\n[Showing lines ${startLineDisplay}-${endLineDisplay} of ${totalFileLines} (${formatSize(DEFAULT_MAX_BYTES)} limit). Use offset=${nextOffset} to continue.]`;
+										outputText += `\n\n[Showing lines ${startLineDisplay}-${endLineDisplay} of ${totalFileLines} (${formatSize(maxBytes)} limit). Use offset=${nextOffset} to continue.]`;
 									}
 									details = { truncation };
 								} else if (userLimitedLines !== undefined && startLine + userLimitedLines < allLines.length) {

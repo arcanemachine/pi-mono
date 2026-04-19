@@ -3,6 +3,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
 import { dirname, join } from "path";
 import lockfile from "proper-lockfile";
 import { CONFIG_DIR_NAME, getAgentDir } from "../config.js";
+import { DEFAULT_MAX_BYTES, DEFAULT_MAX_LINES } from "./tools/truncate.js";
 
 export interface CompactionSettings {
 	enabled?: boolean; // default: true
@@ -37,6 +38,11 @@ export interface ThinkingBudgetsSettings {
 	low?: number;
 	medium?: number;
 	high?: number;
+}
+
+export interface ReadToolSettings {
+	maxLines?: number; // default: 2000
+	maxBytes?: number; // default: 50KB
 }
 
 export interface MarkdownSettings {
@@ -87,6 +93,7 @@ export interface Settings {
 	enableSkillCommands?: boolean; // default: true - register skills as /skill:name commands
 	terminal?: TerminalSettings;
 	images?: ImageSettings;
+	readTool?: ReadToolSettings;
 	enabledModels?: string[]; // Model patterns for cycling (same format as --models CLI flag)
 	doubleEscapeAction?: "fork" | "tree" | "none"; // Action for double-escape with empty editor (default: "tree")
 	treeFilterMode?: "default" | "no-tools" | "user-only" | "labeled-only" | "all"; // Default filter when opening /tree
@@ -891,6 +898,22 @@ export class SettingsManager {
 
 	getBlockImages(): boolean {
 		return this.settings.images?.blockImages ?? false;
+	}
+
+	getReadToolSettings(): Required<ReadToolSettings> {
+		const configuredMaxLines = this.settings.readTool?.maxLines;
+		const configuredMaxBytes = this.settings.readTool?.maxBytes;
+		// Keep settings parsing tolerant: invalid values fall back to built-in defaults.
+		return {
+			maxLines:
+				typeof configuredMaxLines === "number" && Number.isInteger(configuredMaxLines) && configuredMaxLines > 0
+					? configuredMaxLines
+					: DEFAULT_MAX_LINES,
+			maxBytes:
+				typeof configuredMaxBytes === "number" && Number.isInteger(configuredMaxBytes) && configuredMaxBytes > 0
+					? configuredMaxBytes
+					: DEFAULT_MAX_BYTES,
+		};
 	}
 
 	setBlockImages(blocked: boolean): void {
