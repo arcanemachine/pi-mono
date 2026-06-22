@@ -824,6 +824,23 @@ describe("Coding Agent Tools", () => {
 			expect(output).not.toContain("ignored.txt");
 		});
 
+		it("should ignore parent .gitignore rules outside nested git repositories", async () => {
+			const parentDir = join(testDir, "parent");
+			const repoDir = join(parentDir, "child");
+			mkdirSync(join(repoDir, ".git"), { recursive: true });
+			writeFileSync(join(parentDir, ".gitignore"), "*\n!.gitignore\n");
+			writeFileSync(join(repoDir, "AGENTS.md"), "rules");
+
+			const result = await findTool.execute("test-call-find-nested-repo-ignore-boundary", {
+				pattern: "**/AGENTS*.md",
+				path: repoDir,
+			});
+
+			const output = getTextOutput(result);
+			expect(output).toContain("AGENTS.md");
+			expect(output).not.toContain("No files found");
+		});
+
 		it("should surface fd glob parse errors", async () => {
 			await expect(
 				findTool.execute("test-call-15", {

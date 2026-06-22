@@ -8,7 +8,7 @@ import { keyHint } from "../../modes/interactive/components/keybinding-hints.ts"
 import type { Theme } from "../../modes/interactive/theme/theme.ts";
 import { ensureTool } from "../../utils/tools-manager.ts";
 import type { ToolDefinition, ToolRenderResultOptions } from "../extensions/types.ts";
-import { pathExists, resolveToCwd } from "./path-utils.ts";
+import { isInsideGitRepo, pathExists, resolveToCwd } from "./path-utils.ts";
 import { getTextOutput, invalidArgText, shortenPath, str } from "./render-utils.ts";
 import { wrapToolDefinition } from "./tool-definition-wrapper.ts";
 import { DEFAULT_MAX_BYTES, formatSize, type TruncationResult, truncateHead } from "./truncate.ts";
@@ -221,17 +221,13 @@ export function createFindToolDefinition(
 							return;
 						}
 
-						// Build fd arguments. --no-require-git makes fd apply hierarchical .gitignore
-						// semantics whether or not the search path is inside a git repository, without
-						// leaking sibling-directory rules the way --ignore-file (a global source) would.
-						const args: string[] = [
-							"--glob",
-							"--color=never",
-							"--hidden",
-							"--no-require-git",
-							"--max-results",
-							String(effectiveLimit),
-						];
+						const args: string[] = ["--glob", "--color=never", "--hidden"];
+						// Keep .gitignore handling in non-repo directories, but let fd's default
+						// git-aware mode stop parent ignore rules at nested repository boundaries.
+						if (!isInsideGitRepo(searchPath)) {
+							args.push("--no-require-git");
+						}
+						args.push("--max-results", String(effectiveLimit));
 
 						// fd --glob matches against the basename unless --full-path is set; in --full-path
 						// mode it matches against the absolute candidate path, so a path-containing

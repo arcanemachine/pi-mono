@@ -1,5 +1,6 @@
 import { accessSync, constants } from "node:fs";
 import { access } from "node:fs/promises";
+import path from "path";
 import { normalizePath, resolvePath } from "../../utils/paths.ts";
 
 const NARROW_NO_BREAK_SPACE = "\u202F";
@@ -39,6 +40,16 @@ export async function pathExists(filePath: string): Promise<boolean> {
 
 export function expandPath(filePath: string): string {
 	return normalizePath(filePath, { normalizeUnicodeSpaces: true, stripAtPrefix: true });
+}
+
+export function isInsideGitRepo(filePath: string): boolean {
+	let current = path.resolve(filePath);
+	while (true) {
+		if (fileExists(path.join(current, ".git"))) return true;
+		const parent = path.dirname(current);
+		if (parent === current) return false;
+		current = parent;
+	}
 }
 
 /**
